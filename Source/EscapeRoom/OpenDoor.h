@@ -35,6 +35,9 @@ private:
 	float OpenAngle = 60.0f;
 	
 	UPROPERTY(EditAnywhere)
+	float CloseAngle = 0.0f;
+
+	UPROPERTY(EditAnywhere)
 	AActor* ActorThatOpens;
 
 	UPROPERTY(EditAnywhere)
