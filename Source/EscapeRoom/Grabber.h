@@ -3,8 +3,9 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "Engine/World.h"
 #include "Components/ActorComponent.h"
+#include "PhysicsEngine/PhysicsHandleComponent.h"
+#include "Engine/World.h"
 #include "Grabber.generated.h"
 
 
@@ -27,8 +28,13 @@ public:
 
 private:
 
-	virtual FHitResult GetObjectAtLineTrace(float reach);
+	const FHitResult GetObjectAtLineTrace(float reach);
+	UPhysicsHandleComponent* PhysicsHandle = nullptr;
+	UInputComponent* InputComponent = nullptr;
 
-	AActor *Owner;
-	
+	FVector GetLineEndTrace();
+	void Grab();
+	void Release();
+	AActor* Owner;
+	AActor* ActorHit;
 };

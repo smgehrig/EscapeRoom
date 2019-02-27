@@ -5,6 +5,8 @@
 #include "EscapeRoom.h"
 #include "Runtime/Core/Public/Math/Color.h"
 #include "Runtime/Engine/Public/DrawDebugHelpers.h"
+#include "Runtime/Engine/Classes/Components/InputComponent.h"
+#include "Runtime/Engine/Classes/Components/PrimitiveComponent.h"
 #include "Runtime/Engine/Classes/GameFramework/PlayerController.h"
 
 #define OUT
@@ -16,21 +18,30 @@ UGrabber::UGrabber()
 
 void UGrabber::BeginPlay()
 {
+	bWantsBeginPlay = true;
+
+	PhysicsHandle = GetOwner()->FindComponentByClass<UPhysicsHandleComponent>();
+	InputComponent = GetOwner()->FindComponentByClass<UInputComponent>();
+	if (InputComponent)
+	{
+		InputComponent->BindAction("Grab", IE_Pressed, this, &UGrabber::Grab);
+		InputComponent->BindAction("Grab", IE_Released, this, &UGrabber::Release);
+	}
+
 	Super::BeginPlay();
 }
 
 void UGrabber::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
-	float MaxDistance = 75.0f;
-	AActor* ActorHit = (GetObjectAtLineTrace(MaxDistance)).GetActor();
-	if (ActorHit)
+	if (PhysicsHandle->GrabbedComponent)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("object hit: %s"), *(ActorHit->GetName()));
+		UE_LOG(LogTemp, Warning, TEXT("object dragging"));
+		PhysicsHandle->SetTargetLocation(GetLineEndTrace());
 	}
 }
 
-FHitResult UGrabber::GetObjectAtLineTrace(float reach)
+FVector UGrabber::GetLineEndTrace()
 {
 	FVector PlayerViewPointLocation;
 	FRotator PlayerViewRotation;
@@ -40,9 +51,43 @@ FHitResult UGrabber::GetObjectAtLineTrace(float reach)
 		OUT PlayerViewPointLocation,
 		OUT PlayerViewRotation
 	);
+	FVector LineTraceEnd = PlayerViewPointLocation + PlayerViewRotation.Vector() * 75.0f;
+	return LineTraceEnd;
+}
 
-	FVector LineTraceEnd = PlayerViewPointLocation + PlayerViewRotation.Vector() * reach;
+void UGrabber::Grab()
+{
+	float MaxDistance = 75.0f;
+	auto HitResult = GetObjectAtLineTrace(MaxDistance);
+	auto ComponentToGrab = HitResult.GetComponent();
+	auto ActorHit = HitResult.GetActor();
 
+	if (ActorHit) 
+	{
+		PhysicsHandle->GrabComponent(
+			ComponentToGrab,
+			NAME_None,
+			ComponentToGrab->GetOwner()->GetActorLocation(),
+			true
+		);
+	}
+}
+
+void UGrabber::Release()
+{
+	PhysicsHandle->ReleaseComponent();
+}
+
+const FHitResult UGrabber::GetObjectAtLineTrace(float reach)
+{
+	FVector LineTraceEnd = GetLineEndTrace();
+	FVector PlayerViewPointLocation;
+	FRotator PlayerViewRotation;
+	FHitResult LineTraceHit;
+	GetWorld()->GetFirstPlayerController()->GetPlayerViewPoint(
+		OUT PlayerViewPointLocation,
+		OUT PlayerViewRotation
+	);
 	GetWorld()->LineTraceSingleByObjectType(
 		OUT LineTraceHit,
 		PlayerViewPointLocation,
@@ -50,6 +95,5 @@ FHitResult UGrabber::GetObjectAtLineTrace(float reach)
 		FCollisionObjectQueryParams(ECollisionChannel::ECC_PhysicsBody),
 		FCollisionQueryParams(FName(TEXT("")), false, GetOwner())
 	);
-
 	return LineTraceHit;
 }
